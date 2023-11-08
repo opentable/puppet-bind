@@ -15,6 +15,8 @@
 #   IPv6 port to listen on. Set to false to disable. Default: '53'
 #  $listen_on_v6_addr:
 #   Array of IPv6 addresses to listen on. Default: [ '::1' ]
+#  $forward_only:
+#   Only forward requests, do not attempt recursion
 #  $forwarders:
 #   Array of forwarders IP addresses. Default: empty
 #  $directory:
@@ -97,6 +99,7 @@ define bind::server::conf (
   $listen_on_addr         = [ '127.0.0.1' ],
   $listen_on_v6_port      = '53',
   $listen_on_v6_addr      = [ '::1' ],
+  $forward_only           = undef,
   $forwarders             = [],
   $directory              = '/var/named',
   $managed_keys_directory = undef,
@@ -130,10 +133,10 @@ define bind::server::conf (
   $file_bindkeys = $::bind::params::file_bindkeys
 
   # Everything is inside a single template
+
   file { $title:
     notify  => Class['::bind::service'],
     content => template('bind/named.conf.erb'),
     require => Class['::bind::package'],
   }
-
 }

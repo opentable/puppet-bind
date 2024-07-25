@@ -13,6 +13,16 @@ acl <%= key %> {
 
 <% end -%>
 <% end -%>
+<% if !@keys.empty? -%>
+<% @keys.sort_by {|key, value| key}.each do |key,value| -%>
+key "<%= key %>" {
+<% value.each do |line| -%>
+    <%= line %>;
+<% end -%>
+};
+
+<% end -%>
+<% end -%>
 <% if !@masters.empty? -%>
 <% @masters.sort_by {|key, value| key}.each do |key,value| -%>
 masters <%= key %> {
@@ -42,6 +52,9 @@ options {
   forward only;
   <% end -%>
     forwarders { <%= @forwarders.join("; ") %>; };
+<% end -%>
+<% if @forward -%>
+    forward <%= @forward %>;
 <% end -%>
     directory "<%= @directory %>";
 <% if @managed_keys_directory -%>
@@ -94,7 +107,7 @@ options {
     querylog no;
 
     /* Path to ISC DLV key */
-    bindkeys-file "/etc/named.iscdlv.key";
+    bindkeys-file "<%= @file_bindkeys %>";
 };
 
 statistics-channels {
@@ -233,6 +246,7 @@ view "<%= key %>" {
     };
 
 <% end -%>
+<% end -%>
 <% if !@zones.empty? -%>
     /* Global zones */
 <% @zones.sort_by {|key, value| key}.each do |key,value| -%>
@@ -244,15 +258,14 @@ view "<%= key %>" {
 
 <% end -%>
 <% end -%>
-<% end -%>
 };
 <% end -%>
 <% else -%><%# end views, start no views -%>
 
-<% if @recursion == 'yes' -%>
+<% if @recursion == 'yes' && @file_hint -%>
 zone "." IN {
     type hint;
-    file "db.root";
+    file "<%= @file_hint %>";
 };
 
 <% end -%>
@@ -267,7 +280,7 @@ zone "<%= key %>" IN {
 <% end -%>
 <% end -%>
 <% if @recursion == 'yes' -%>
-include "/etc/bind/named.rfc1912.zones";
+include "<%= @file_rfc1912 %>";
 <% end -%>
 <% end -%><%# end no views -%>
 <% if !@includes.empty? -%>
@@ -275,4 +288,3 @@ include "/etc/bind/named.rfc1912.zones";
 include "<%= filename %>";
 <% end -%>
 <% end -%>
-

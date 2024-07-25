@@ -6,6 +6,8 @@
 # Parameters:
 #  $zonedir:
 #    Directory where to store the zone file. Default: '/var/named'
+#  $zonename:
+#    Zone name to be used when validating the zone. Default: same as title
 #  $owner:
 #    Zone file user owner. Default: 'root'
 #  $group:
@@ -30,14 +32,16 @@
 #
 define bind::server::file (
   $zonedir     = '/var/named',
+  $zonename    = $title,
   $owner       = 'root',
   $group       = undef,
   $mode        = '0640',
-  $dirmode     = '0750',
+  $dirmode     = '0770',
   $source      = undef,
   $source_base = undef,
   $content     = undef,
   $ensure      = undef,
+  $replace     = undef,
 ) {
 
   include '::bind::params'
@@ -48,32 +52,39 @@ define bind::server::file (
     $bindgroup = $::bind::params::bindgroup
   }
 
-  if $source      { $zone_source = $source }
-  if $source_base { $zone_source = "${source_base}${title}" }
+  if $source {
+    $zone_source = $source
+  } elsif $source_base {
+    $zone_source = "${source_base}${title}"
+  } else {
+    $zone_source = undef
+  }
 
   if ! defined(File[$zonedir]) {
     file { $zonedir:
-      ensure => directory,
-      owner  => $owner,
-      group  => $bindgroup,
-      mode   => $dirmode,
+      ensure  => 'directory',
+      owner   => $owner,
+      group   => $bindgroup,
+      mode    => $dirmode,
+      require => Class['::bind::package'],
     }
   }
 
   file { "${zonedir}/${title}":
-    ensure  => $ensure,
-    owner   => $owner,
-    group   => $bindgroup,
-    mode    => $mode,
-    source  => $zone_source,
-    content => $content,
-    notify  => Class['::bind::service'],
+    ensure       => $ensure,
+    owner        => $owner,
+    group        => $bindgroup,
+    mode         => $mode,
+    source       => $zone_source,
+    content      => $content,
+    replace      => $replace,
+    validate_cmd => "/usr/sbin/named-checkzone -k fail -m fail -M fail -n fail -r fail -S fail -T warn -W warn ${zonename} %",
+    notify       => Class['::bind::service'],
     # For the parent directory
-    require => [
+    require      => [
       Class['::bind::package'],
       File[$zonedir],
     ],
   }
 
 }
-

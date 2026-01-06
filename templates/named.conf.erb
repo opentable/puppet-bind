@@ -13,6 +13,16 @@ acl <%= key %> {
 
 <% end -%>
 <% end -%>
+<% if !@keys.empty? -%>
+<% @keys.sort_by {|key, value| key}.each do |key,value| -%>
+key "<%= key %>" {
+<% value.each do |line| -%>
+    <%= line %>;
+<% end -%>
+};
+
+<% end -%>
+<% end -%>
 <% if !@masters.empty? -%>
 <% @masters.sort_by {|key, value| key}.each do |key,value| -%>
 masters <%= key %> {
@@ -38,7 +48,13 @@ options {
     listen-on-v6 port <%= @listen_on_v6_port %> { <%= @listen_on_v6_addr.join("; ") %>; };
 <% end -%>
 <% if !@forwarders.empty? -%>
+  <% if @forward_only -%>
+  forward only;
+  <% end -%>
     forwarders { <%= @forwarders.join("; ") %>; };
+<% end -%>
+<% if @forward -%>
+    forward <%= @forward %>;
 <% end -%>
     directory "<%= @directory %>";
 <% if @managed_keys_directory -%>
@@ -87,12 +103,14 @@ options {
 <% end -%>
 
 <% end -%>
-    dnssec-enable <%= @dnssec_enable %>;
     dnssec-validation <%= @dnssec_validation %>;
-    dnssec-lookaside <%= @dnssec_lookaside %>;
 
     /* Path to ISC DLV key */
-    bindkeys-file "/etc/named.iscdlv.key";
+    bindkeys-file "<%= @file_bindkeys %>";
+};
+
+statistics-channels {
+    inet 127.0.0.1 port 8053 allow { 127.0.0.1; };
 };
 
 statistics-channels {
@@ -155,11 +173,6 @@ logging {
         severity dynamic;
         print-time yes;
     };
-    channel queries_file {
-        file "/var/log/named/queries.log" versions 3 size 5m;
-        severity dynamic;
-        print-time yes;
-    };
     channel network_file {
         file "/var/log/named/network.log" versions 3 size 5m;
         severity dynamic;
@@ -185,6 +198,13 @@ logging {
         severity dynamic;
         print-time yes;
     };
+    channel queries_file {
+        file "/var/log/named/queries.log" versions 8 size 200m;
+        print-time yes;
+        print-category yes;
+        print-severity yes;
+        severity info;
+     };
 
     category default { default_file; };
     category general { general_file; };
@@ -207,7 +227,7 @@ logging {
 <% if !@views.empty? -%>
 
 <% @views.sort_by {|key,value| key}.each do |key,value| -%>
-<% valid_keys = %w(allow-notify allow-query allow-recursion allow-transfer allow-update-forwarding forwarders match-clients match-destinations match-recursive-only) -%>
+<% valid_keys = %w(allow-notify allow-query allow-recursion allow-transfer allow-update-forwarding forward forwarders match-clients match-destinations match-recursive-only) -%>
 view "<%= key %>" {
 <% valid_keys.sort.each do |valid_key| -%>
 <% if value[valid_key] and !value[valid_key].empty? -%>
@@ -229,6 +249,7 @@ view "<%= key %>" {
     };
 
 <% end -%>
+<% end -%>
 <% if !@zones.empty? -%>
     /* Global zones */
 <% @zones.sort_by {|key, value| key}.each do |key,value| -%>
@@ -240,15 +261,14 @@ view "<%= key %>" {
 
 <% end -%>
 <% end -%>
-<% end -%>
 };
 <% end -%>
 <% else -%><%# end views, start no views -%>
 
-<% if @recursion == 'yes' -%>
+<% if @recursion == 'yes' && @file_hint -%>
 zone "." IN {
     type hint;
-    file "db.root";
+    file "<%= @file_hint %>";
 };
 
 <% end -%>
@@ -263,7 +283,7 @@ zone "<%= key %>" IN {
 <% end -%>
 <% end -%>
 <% if @recursion == 'yes' -%>
-include "/etc/bind/named.rfc1912.zones";
+include "<%= @file_rfc1912 %>";
 <% end -%>
 <% end -%><%# end no views -%>
 <% if !@includes.empty? -%>

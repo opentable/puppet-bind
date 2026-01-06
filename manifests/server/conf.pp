@@ -15,6 +15,8 @@
 #   IPv6 port to listen on. Set to false to disable. Default: '53'
 #  $listen_on_v6_addr:
 #   Array of IPv6 addresses to listen on. Default: [ '::1' ]
+#  $forward_only:
+#   Only forward requests, do not attempt recursion
 #  $forwarders:
 #   Array of forwarders IP addresses. Default: empty
 #  $directory:
@@ -22,6 +24,8 @@
 #  $hostname:
 #   Hostname returned for hostname.bind TXT in CHAOS. Set to 'none' to disable.
 #   Default: undef, bind internal default
+#  $forward:
+#   Specific forwarding mode forward ( first | only );. Default: undef, empty
 #  $server_id:
 #   ID returned for id.server TXT in CHAOS. Default: undef, empty
 #  $version:
@@ -44,7 +48,8 @@
 #  $check_names:
 #   Array of check-names strings. Example: [ 'master ignore' ]. Default: empty
 #  $extra_options:
-#   Hash for any additional options that must go in the 'options' declaration. Default: empty
+#   Hash for any additional options that must go in the 'options' declaration.
+#   Default: empty
 #  $dnssec_enable:
 #   Enable DNSSEC support. Default: 'yes'
 #  $dnssec_validation:
@@ -53,6 +58,9 @@
 #   DNSSEC lookaside type. Default: 'auto'
 #  $zones:
 #   Hash of managed zones and their configuration. The key is the zone name
+#   and the value is an array of config lines. Default: empty
+#  $keys:
+#   Hash of managed tsig keys and their configuration. The key is the tsig keys name
 #   and the value is an array of config lines. Default: empty
 #  $includes:
 #   Array of absolute paths to named.conf include files. Default: empty
@@ -76,6 +84,12 @@
 #        'masters { mymasters; }',
 #      ],
 #    }
+#    keys                 => { 
+#      'example.org-tsig' => [
+#        'algorithm hmac-md5',
+#        'secret "aaabbbcccddd"',
+#      ],
+#    }
 #  }
 #
 define bind::server::conf (
@@ -85,10 +99,12 @@ define bind::server::conf (
   $listen_on_addr         = [ '127.0.0.1' ],
   $listen_on_v6_port      = '53',
   $listen_on_v6_addr      = [ '::1' ],
+  $forward_only           = undef,
   $forwarders             = [],
   $directory              = '/var/named',
   $managed_keys_directory = undef,
   $hostname               = undef,
+  $forward                = undef,
   $server_id              = undef,
   $version                = undef,
   $dump_file              = '/var/named/data/cache_dump.db',
@@ -101,47 +117,23 @@ define bind::server::conf (
   $allow_transfer         = [],
   $check_names            = [],
   $extra_options          = {},
-  $dnssec_enable          = 'yes',
-  $dnssec_validation      = 'yes',
-  $dnssec_lookaside       = 'auto',
+  $dnssec_validation      = 'no',
   $zones                  = {},
+  $keys                   = {},
   $includes               = [],
   $views                  = {},
 ) {
 
-  file { '/var/named': 
-    ensure => directory, 
-  }
+  # OS Defaults
+  include '::bind::params'
+  $file_hint = $::bind::params::file_hint
+  $file_rfc1912 = $::bind::params::file_rfc1912
+  $file_bindkeys = $::bind::params::file_bindkeys
 
-  file { '/var/named/named.ca': 
-    ensure  => file, 
-    content => template('bind/named.ca.erb'), 
-    owner   => 'root', 
-    group   => 'bind', 
-    mode    => 'u=rw,go=r', 
-  }
-
-  file { '/etc/bind/named.rfc1912.zones': 
-    ensure  => file, 
-    content => template('bind/named.rfc1912.zones.erb'), 
-    owner   => 'root', 
-    group   => 'bind', 
-    mode    => 'ug=rw,o=r', 
-  }
-
-  service { 'apparmor':
-    ensure => 'running',
-    enable => 'true',
-  }
-
-  file { '/etc/apparmor.d/usr.sbin.named': 
-    notify  => Service['apparmor'],
-    content => template('bind/usr.sbin.named.erb'), 
-  }
-
+  # Everything is inside a single template
   file { $title:
-    notify  => Class['bind::service'],
+    notify  => Class['::bind::service'],
     content => template('bind/named.conf.erb'),
+    require => Class['::bind::package'],
   }
 }
-

@@ -104,8 +104,7 @@ define bind::server::conf (
   $allow_transfer         = [],
   $check_names            = [],
   $extra_options          = {},
-  $dnssec_enable          = 'yes',
-  $dnssec_validation      = 'yes',
+  $dnssec_validation      = 'no',
   $dnssec_lookaside       = 'auto',
   $zones                  = {},
   $includes               = [],
@@ -130,16 +129,6 @@ define bind::server::conf (
     owner   => 'root', 
     group   => 'bind', 
     mode    => 'ug=rw,o=r', 
-  }
-
-  service { 'apparmor':
-    ensure => 'running',
-    enable => 'true',
-  }
-
-  file { '/etc/apparmor.d/usr.sbin.named': 
-    notify  => Service['apparmor'],
-    content => template('bind/usr.sbin.named.erb'), 
   }
 
   file { $title:

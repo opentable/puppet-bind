@@ -99,6 +99,10 @@ options {
     bindkeys-file "<%= @file_bindkeys %>";
 };
 
+statistics-channels {
+    inet 127.0.0.1 port 8053 allow { 127.0.0.1; };
+};
+
 logging {
     channel main_log {
         file "/var/log/named/named.log" versions 3 size 5m;
